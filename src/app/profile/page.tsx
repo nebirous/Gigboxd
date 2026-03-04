@@ -21,6 +21,18 @@ export default async function ProfilePage() {
     .eq("id", userId)
     .single();
 
+  // Fetch followers count (people who follow this user)
+  const { count: followersCount } = await supabase
+    .from("follows")
+    .select("*", { count: "exact", head: true })
+    .eq("following_id", userId);
+
+  // Fetch following count (people this user follows)
+  const { count: followingCount } = await supabase
+    .from("follows")
+    .select("*", { count: "exact", head: true })
+    .eq("follower_id", userId);
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-200">
       {/* Navbar skeleton */}
@@ -58,8 +70,8 @@ export default async function ProfilePage() {
           </div>
         </div>
 
-        {/* Stats Section (Mocked for now) */}
-        <div className="grid grid-cols-2 gap-4 py-8 md:grid-cols-4">
+        {/* Stats Section */}
+        <div className="grid grid-cols-2 gap-4 py-8 md:grid-cols-5">
           <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 text-center">
             <span className="block text-2xl font-bold text-white">0</span>
             <span className="text-xs text-zinc-500 uppercase tracking-wider">Concerts</span>
@@ -73,8 +85,12 @@ export default async function ProfilePage() {
             <span className="text-xs text-zinc-500 uppercase tracking-wider">Festivals</span>
           </div>
           <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 text-center">
-            <span className="block text-2xl font-bold text-white">0</span>
+            <span className="block text-2xl font-bold text-white">{followersCount ?? 0}</span>
             <span className="text-xs text-zinc-500 uppercase tracking-wider">Followers</span>
+          </div>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 text-center">
+            <span className="block text-2xl font-bold text-white">{followingCount ?? 0}</span>
+            <span className="text-xs text-zinc-500 uppercase tracking-wider">Following</span>
           </div>
         </div>
       </main>
