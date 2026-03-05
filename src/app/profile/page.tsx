@@ -33,6 +33,34 @@ export default async function ProfilePage() {
     .select("*", { count: "exact", head: true })
     .eq("follower_id", userId);
 
+  // Fetch the user's logs (Diary entries)
+  const { data: logs } = await supabase
+    .from("logs")
+    .select(
+      `
+      *,
+      events (
+        *,
+        venues (*)
+      )
+    `
+    )
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+
+  // Calculate live stats from logs
+  let concertsCount = 0;
+  let festivalsCount = 0;
+  
+  if (logs) {
+    logs.forEach((log: any) => {
+      concertsCount++;
+      if (log.events?.is_festival) {
+        festivalsCount++;
+      }
+    });
+  }
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-200">
       {/* Navbar skeleton */}
@@ -73,7 +101,7 @@ export default async function ProfilePage() {
         {/* Stats Section */}
         <div className="grid grid-cols-2 gap-4 py-8 md:grid-cols-5">
           <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 text-center">
-            <span className="block text-2xl font-bold text-white">0</span>
+            <span className="block text-2xl font-bold text-white">{concertsCount}</span>
             <span className="text-xs text-zinc-500 uppercase tracking-wider">Concerts</span>
           </div>
           <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 text-center">
@@ -81,7 +109,7 @@ export default async function ProfilePage() {
             <span className="text-xs text-zinc-500 uppercase tracking-wider">Bands</span>
           </div>
           <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 text-center">
-            <span className="block text-2xl font-bold text-white">0</span>
+            <span className="block text-2xl font-bold text-white">{festivalsCount}</span>
             <span className="text-xs text-zinc-500 uppercase tracking-wider">Festivals</span>
           </div>
           <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 text-center">
@@ -92,6 +120,56 @@ export default async function ProfilePage() {
             <span className="block text-2xl font-bold text-white">{followingCount ?? 0}</span>
             <span className="text-xs text-zinc-500 uppercase tracking-wider">Following</span>
           </div>
+        </div>
+
+        {/* Diary Feed */}
+        <div className="mt-8 border-t border-zinc-900 pt-8">
+          <h3 className="text-xl font-bold text-white font-outfit mb-6">Recent Diary Entries</h3>
+          {logs && logs.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {logs.map((log: any) => {
+                const event = log.events;
+                if (!event) return null;
+                const location = event.venues?.city ? `${event.venues.name}, ${event.venues.city}` : event.venues?.name || "Unknown Venue";
+
+                return (
+                  <div key={log.id} className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/60 flex flex-col gap-3 transition-colors hover:border-neon-cyan/50">
+                    <div className="flex gap-4 items-start">
+                      {event.image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={event.image_url} alt={event.title} className="w-16 h-16 rounded-lg object-cover bg-zinc-800 shrink-0" />
+                      ) : (
+                        <div className="w-16 h-16 rounded-lg bg-zinc-800 shrink-0" />
+                      )}
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <h4 className="font-bold text-white truncate font-outfit">{event.title}</h4>
+                          {log.rating && (
+                            <span className="text-xs font-bold text-neon-cyan bg-neon-cyan/10 px-2 py-0.5 rounded-full shrink-0">
+                              ★ {log.rating.toFixed(1)}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-zinc-500 truncate mb-1">{location}</p>
+                        <p className="text-[10px] text-zinc-600 uppercase font-medium">Logged on {new Date(log.created_at).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                    
+                    {log.review_text && (
+                      <p className="text-sm text-zinc-300 bg-zinc-950/50 p-3 rounded-lg border border-zinc-800/50 mt-1 italic">
+                        &quot;{log.review_text}&quot;
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-12 bg-zinc-900/20 rounded-xl border border-zinc-800/50">
+              <p className="text-zinc-500">No concerts logged yet.</p>
+            </div>
+          )}
         </div>
       </main>
     </div>
