@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Outfit, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { BottomNav } from "@/components/ui/bottom-nav";
+import { TopNav } from "@/components/ui/top-nav";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -30,10 +30,10 @@ export default function RootLayout({
       <body
         className={`${outfit.variable} ${geistMono.variable} font-sans antialiased bg-[#0a0a0a] text-zinc-200`}
       >
-        <div className="min-h-screen pb-20 md:pb-0 md:pl-64">
+        <TopNav />
+        <div className="min-h-screen">
           {children}
         </div>
-        <BottomNav />
       </body>
     </html>
   );

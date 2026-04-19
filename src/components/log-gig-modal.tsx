@@ -1,0 +1,236 @@
+"use client";
+
+import { useState, useTransition, useEffect } from "react";
+import { X, Calendar, MapPin, Music, Image as ImageIcon } from "lucide-react";
+import { Button } from "./ui/button";
+import { logGig } from "@/app/actions/log-gig";
+import { useRouter } from "next/navigation";
+
+interface LogGigModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export function LogGigModal({ isOpen, onClose }: LogGigModalProps) {
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState("");
+  const router = useRouter();
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    if (isOpen) window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  async function handleSubmit(formData: FormData) {
+    setError(null);
+    startTransition(async () => {
+      const result = await logGig(formData);
+      if (result?.error) {
+        setError(result.error);
+      } else {
+        onClose();
+        router.refresh();
+      }
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+      <div 
+        className="bg-zinc-950 border border-zinc-800 rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col md:flex-row overflow-hidden shadow-2xl relative"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Close Button */}
+        <button 
+          onClick={onClose}
+          className="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-zinc-400 hover:text-white hover:bg-black/80 transition-all"
+        >
+          <X size={18} />
+        </button>
+
+        {/* LEFT COLUMN: Form Fields */}
+        <div className="flex-1 p-6 md:p-8 overflow-y-auto w-full md:w-1/2 flex flex-col max-h-[50vh] md:max-h-none custom-scrollbar">
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold font-outfit text-white tracking-tight">
+              Log a <span className="text-neon-fuchsia">Gig</span>
+            </h2>
+            <p className="text-sm text-zinc-400 mt-1">Add a concert or festival to your diary.</p>
+          </div>
+
+          {error && (
+            <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+              {error}
+            </div>
+          )}
+
+          <form action={handleSubmit} className="space-y-4 flex flex-col flex-1">
+            <div className="space-y-4 flex-1">
+              {/* Event Details */}
+              <div className="space-y-3">
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
+                    <Music size={16} />
+                  </div>
+                  <input
+                    type="text"
+                    name="title"
+                    required
+                    placeholder="Event Name (e.g. A Moon Shaped Pool Tour)"
+                    className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-lg pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan transition-all"
+                  />
+                </div>
+
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
+                    <Calendar size={16} />
+                  </div>
+                  <input
+                    type="date"
+                    name="date"
+                    required
+                    className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-lg pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan transition-all hover:cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* Venue Info */}
+              <div className="p-4 rounded-lg bg-zinc-900/50 border border-zinc-800/50 space-y-3">
+                <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                  <MapPin size={12} /> Venue Details
+                </h4>
+                
+                <input
+                  type="text"
+                  name="venueName"
+                  required
+                  placeholder="Venue Name"
+                  className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan transition-all"
+                />
+                
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    name="venueCity"
+                    required
+                    placeholder="City"
+                    className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan transition-all"
+                  />
+                  <input
+                    type="text"
+                    name="venueCountry"
+                    required
+                    placeholder="Country"
+                    className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Poster URL (updates right panel) */}
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
+                  <ImageIcon size={16} />
+                </div>
+                <input
+                  type="url"
+                  name="imageUrl"
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="Event Image URL (Optional)"
+                  className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan transition-all"
+                />
+              </div>
+
+              {/* Review and Rating */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Status</label>
+                    <select 
+                      name="status" 
+                      className="bg-zinc-900 border border-zinc-800 text-white rounded text-sm p-1 focus:outline-none focus:border-neon-cyan"
+                    >
+                      <option value="Attended">Attended</option>
+                      <option value="Going">Going</option>
+                    </select>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Rating</label>
+                    <select 
+                      name="rating" 
+                      className="bg-zinc-900 border border-zinc-800 text-white rounded text-sm p-1 focus:outline-none focus:border-neon-cyan"
+                    >
+                      <option value="">No Rating</option>
+                      <option value="1">1 Star</option>
+                      <option value="2">2 Stars</option>
+                      <option value="3">3 Stars</option>
+                      <option value="4">4 Stars</option>
+                      <option value="5">5 Stars</option>
+                    </select>
+                  </div>
+                </div>
+
+                <textarea
+                  name="reviewText"
+                  placeholder="Add a review or some notes about the gig... (Optional)"
+                  rows={3}
+                  className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-lg p-3 text-sm focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan transition-all resize-none"
+                ></textarea>
+              </div>
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-zinc-800/50 flex justify-end">
+              <Button 
+                type="submit" 
+                variant="neon" 
+                disabled={isPending}
+                className="w-full sm:w-auto px-8"
+              >
+                {isPending ? "SAVE..." : "SAVE GIG"}
+              </Button>
+            </div>
+          </form>
+        </div>
+
+        {/* RIGHT COLUMN: Image Preview */}
+        <div className="w-full md:w-1/2 bg-zinc-900 border-t md:border-t-0 md:border-l border-zinc-800 flex items-center justify-center p-8 relative overflow-hidden min-h-[250px] md:min-h-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-zinc-800/50 to-zinc-900">
+          {imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img 
+              src={imageUrl} 
+              alt="Gig preview" 
+              className="max-w-full max-h-full object-contain rounded-md shadow-2xl relative z-10 aspect-[2/3] md:auto"
+              onError={() => setImageUrl("")}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center text-zinc-600 gap-3">
+              <div className="w-16 h-16 rounded-full bg-zinc-800/50 flex items-center justify-center">
+                <ImageIcon size={32} />
+              </div>
+              <p className="text-sm font-medium">Image Preview</p>
+              <p className="text-xs text-zinc-500 max-w-[200px] text-center">
+                Add an image URL on the left to see the gig poster here.
+              </p>
+            </div>
+          )}
+          
+          {/* Subtle background blur if image exists */}
+          {imageUrl && (
+            <div 
+              className="absolute inset-0 z-0 opacity-20 blur-3xl scale-125 bg-center bg-cover"
+              style={{ backgroundImage: `url(${imageUrl})` }}
+            />
+          )}
+
+        </div>
+      </div>
+    </div>
+  );
+}
