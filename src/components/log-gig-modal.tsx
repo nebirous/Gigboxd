@@ -5,6 +5,8 @@ import { X, Calendar, MapPin, Music, Image as ImageIcon, Plus, Trash2 } from "lu
 import { Button } from "./ui/button";
 import { Rating } from "./ui/rating";
 import { ArtistAutocomplete } from "./ui/artist-autocomplete";
+import { EventAutocomplete, type EventMatch } from "./ui/event-autocomplete";
+import { VenueAutocomplete } from "./ui/venue-autocomplete";
 import { logGig } from "@/app/actions/log-gig";
 import { useRouter } from "next/navigation";
 
@@ -16,10 +18,17 @@ interface LogGigModalProps {
 export function LogGigModal({ isOpen, onClose }: LogGigModalProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  const [title, setTitle] = useState("");
+  const [date, setDate] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [venueName, setVenueName] = useState("");
+  const [venueCity, setVenueCity] = useState("");
+  const [venueCountry, setVenueCountry] = useState("");
   const [bands, setBands] = useState<{ name: string; isHeadliner: boolean }[]>([
     { name: "", isHeadliner: true }
   ]);
+  const [isLockedEvent, setIsLockedEvent] = useState(false);
   const [rating, setRating] = useState<number>(0);
   const router = useRouter();
 
@@ -37,6 +46,24 @@ export function LogGigModal({ isOpen, onClose }: LogGigModalProps) {
     const newBands = [...bands];
     newBands[index] = { ...newBands[index], [field]: value };
     setBands(newBands);
+  };
+
+  const handleEventSelect = (event: EventMatch) => {
+    setTitle(event.title);
+    setDate(event.date);
+    if (event.image_url) setImageUrl(event.image_url);
+    if (event.venues) {
+      setVenueName(event.venues.name);
+      setVenueCity(event.venues.city);
+      setVenueCountry(event.venues.country);
+    }
+    if (event.event_artists && event.event_artists.length > 0) {
+      setBands(event.event_artists.map(ea => ({
+        name: ea.artists.name,
+        isHeadliner: ea.is_headliner
+      })));
+    }
+    setIsLockedEvent(true);
   };
 
   // Close on Escape key
@@ -57,8 +84,14 @@ export function LogGigModal({ isOpen, onClose }: LogGigModalProps) {
       if (result?.error) {
         setError(result.error);
       } else {
+        setTitle("");
+        setDate("");
+        setVenueName("");
+        setVenueCity("");
+        setVenueCountry("");
         setBands([{ name: "", isHeadliner: true }]);
         setImageUrl("");
+        setIsLockedEvent(false);
         setRating(0);
         onClose();
         router.refresh();
@@ -97,14 +130,22 @@ export function LogGigModal({ isOpen, onClose }: LogGigModalProps) {
 
           <form action={handleSubmit} className="space-y-4 flex flex-col flex-1">
             <div className="space-y-4 flex-1">
+              {/* Hidden Inputs for Form Submission */}
+              <input type="hidden" name="title" value={title} />
+              <input type="hidden" name="date" value={date} />
+              <input type="hidden" name="venueName" value={venueName} />
+              <input type="hidden" name="venueCity" value={venueCity} />
+              <input type="hidden" name="venueCountry" value={venueCountry} />
+
               {/* Event Details */}
               <div className="space-y-3">
-                <input
-                  type="text"
-                  name="title"
-                  required
+                <EventAutocomplete
                   placeholder="Event Name (e.g. A Moon Shaped Pool Tour)"
-                  className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan transition-all"
+                  value={title}
+                  onChange={setTitle}
+                  onSelect={handleEventSelect}
+                  disabled={isLockedEvent}
+                  className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-lg pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan transition-all disabled:opacity-50"
                 />
 
                 <div className="relative">
@@ -113,9 +154,11 @@ export function LogGigModal({ isOpen, onClose }: LogGigModalProps) {
                   </div>
                   <input
                     type="date"
-                    name="date"
                     required
-                    className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-lg pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan transition-all hover:cursor-pointer"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    disabled={isLockedEvent}
+                    className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-lg pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan transition-all hover:cursor-pointer disabled:opacity-50"
                   />
                 </div>
               </div>
@@ -126,28 +169,37 @@ export function LogGigModal({ isOpen, onClose }: LogGigModalProps) {
                   <MapPin size={12} /> Venue Details
                 </h4>
                 
-                <input
-                  type="text"
-                  name="venueName"
-                  required
+                <VenueAutocomplete
                   placeholder="Venue Name"
-                  className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan transition-all"
+                  value={venueName}
+                  onChange={setVenueName}
+                  disabled={isLockedEvent}
+                  onSelect={(v) => {
+                    setVenueName(v.name);
+                    setVenueCity(v.city);
+                    setVenueCountry(v.country);
+                  }}
+                  className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan transition-all disabled:opacity-50"
                 />
                 
                 <div className="flex gap-3">
                   <input
                     type="text"
-                    name="venueCity"
                     required
                     placeholder="City"
-                    className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan transition-all"
+                    value={venueCity}
+                    onChange={(e) => setVenueCity(e.target.value)}
+                    disabled={isLockedEvent}
+                    className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan transition-all disabled:opacity-50"
                   />
                   <input
                     type="text"
-                    name="venueCountry"
                     required
                     placeholder="Country"
-                    className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan transition-all"
+                    value={venueCountry}
+                    onChange={(e) => setVenueCountry(e.target.value)}
+                    disabled={isLockedEvent}
+                    className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan transition-all disabled:opacity-50"
                   />
                 </div>
               </div>
@@ -158,7 +210,7 @@ export function LogGigModal({ isOpen, onClose }: LogGigModalProps) {
                   <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5">
                     <Music size={12} /> Bands / Artists
                   </h4>
-                  {bands.length < 5 && (
+                  {bands.length < 5 && !isLockedEvent && (
                     <button 
                       type="button" 
                       onClick={addBand}
@@ -177,18 +229,20 @@ export function LogGigModal({ isOpen, onClose }: LogGigModalProps) {
                       placeholder={index === 0 ? "Headliner Name" : "Support Band Name"}
                       value={band.name}
                       onChange={(val) => updateBand(index, "name", val)}
-                      className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan transition-all"
+                      disabled={isLockedEvent}
+                      className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan transition-all disabled:opacity-50"
                     />
                     <label className="flex items-center gap-1.5 cursor-pointer text-xs text-zinc-400 font-medium whitespace-nowrap">
                       <input 
                         type="checkbox" 
                         checked={band.isHeadliner}
+                        disabled={isLockedEvent}
                         onChange={(e) => updateBand(index, "isHeadliner", e.target.checked)}
-                        className="accent-neon-cyan shrink-0"
+                        className="accent-neon-cyan shrink-0 disabled:opacity-50"
                       />
                       Headliner
                     </label>
-                    {index > 0 ? (
+                    {index > 0 && !isLockedEvent ? (
                       <button 
                         type="button" 
                         onClick={() => removeBand(index)}
@@ -212,9 +266,10 @@ export function LogGigModal({ isOpen, onClose }: LogGigModalProps) {
                   type="url"
                   name="imageUrl"
                   value={imageUrl}
+                  disabled={isLockedEvent}
                   onChange={(e) => setImageUrl(e.target.value)}
                   placeholder="Event Image URL (Optional)"
-                  className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan transition-all"
+                  className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan transition-all disabled:opacity-50"
                 />
               </div>
 

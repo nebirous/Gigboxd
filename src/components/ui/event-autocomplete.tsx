@@ -1,39 +1,51 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { searchArtists } from "@/app/actions/search-artists";
-import { User } from "lucide-react";
+import { searchEvents } from "@/app/actions/search-events";
+import { Music, Calendar as CalendarIcon } from "lucide-react";
 
-interface Artist {
+export interface EventMatch {
   id: string;
-  name: string;
+  title: string;
+  date: string;
   image_url: string | null;
+  venues: {
+    id: string;
+    name: string;
+    city: string;
+    country: string;
+  };
+  event_artists: {
+    is_headliner: boolean;
+    artists: {
+      id: string;
+      name: string;
+    }
+  }[];
 }
 
-interface ArtistAutocompleteProps {
+interface EventAutocompleteProps {
   value: string;
   onChange: (value: string) => void;
+  onSelect: (event: EventMatch) => void;
   placeholder?: string;
   className?: string;
   disabled?: boolean;
 }
 
-export function ArtistAutocomplete({ value, onChange, placeholder, className, disabled }: ArtistAutocompleteProps) {
+export function EventAutocomplete({ value, onChange, onSelect, placeholder, className, disabled }: EventAutocompleteProps) {
   const [query, setQuery] = useState(value);
-  const [results, setResults] = useState<Artist[]>([]);
+  const [results, setResults] = useState<EventMatch[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // Sync internal query state with external value if it changes (without triggering onChange loop)
   useEffect(() => {
     if (value !== query) {
       setQuery(value);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
-  // Handle outside click to close dropdown
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
@@ -44,13 +56,12 @@ export function ArtistAutocomplete({ value, onChange, placeholder, className, di
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Debounced Search
   useEffect(() => {
     const timer = setTimeout(async () => {
       if (query.trim().length >= 2 && isOpen && !disabled) {
         setIsLoading(true);
-        const data = await searchArtists(query);
-        setResults(data);
+        const data = await searchEvents(query);
+        setResults(data as any);
         setIsLoading(false);
       } else {
         setResults([]);
@@ -59,16 +70,20 @@ export function ArtistAutocomplete({ value, onChange, placeholder, className, di
 
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, isOpen]);
+  }, [query, isOpen, disabled]);
 
-  const handleSelect = (artistName: string) => {
-    setQuery(artistName);
-    onChange(artistName);
+  const handleSelect = (eventMatch: EventMatch) => {
+    setQuery(eventMatch.title);
+    onChange(eventMatch.title);
     setIsOpen(false);
+    onSelect(eventMatch);
   };
 
   return (
-    <div ref={wrapperRef} className="relative flex-1">
+    <div ref={wrapperRef} className="relative w-full">
+      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500 z-10 text-xl overflow-visible">
+        <Music size={16} />
+      </div>
       <input
         type="text"
         required
@@ -76,9 +91,8 @@ export function ArtistAutocomplete({ value, onChange, placeholder, className, di
         value={query}
         disabled={disabled}
         onChange={(e) => {
-          const val = e.target.value;
-          setQuery(val);
-          onChange(val);
+          setQuery(e.target.value);
+          onChange(e.target.value);
           setIsOpen(true);
         }}
         onFocus={() => {
@@ -92,21 +106,22 @@ export function ArtistAutocomplete({ value, onChange, placeholder, className, di
           {isLoading ? (
             <li className="px-4 py-3 text-xs text-zinc-500 text-center">Searching...</li>
           ) : (
-            results.map((artist) => (
+            results.map((eventMatch) => (
               <li
-                key={artist.id}
-                onClick={() => handleSelect(artist.name)}
-                className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-zinc-800 transition-colors border-b border-zinc-800/50 last:border-0"
+                key={eventMatch.id}
+                onClick={() => handleSelect(eventMatch)}
+                className="flex flex-col gap-0.5 px-3 py-2 cursor-pointer hover:bg-zinc-800 transition-colors border-b border-zinc-800/50 last:border-0"
               >
-                <div className="w-8 h-8 rounded-full overflow-hidden bg-zinc-800 flex items-center justify-center shrink-0">
-                  {artist.image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={artist.image_url} alt={artist.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <User size={14} className="text-zinc-500" />
-                  )}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm text-zinc-200 font-medium truncate">{eventMatch.title}</span>
+                  <div className="flex items-center gap-1 text-[10px] text-zinc-500 shrink-0">
+                    <CalendarIcon size={10} />
+                    {eventMatch.date}
+                  </div>
                 </div>
-                <span className="text-sm text-zinc-200 font-medium truncate">{artist.name}</span>
+                <span className="text-xs text-zinc-500 truncate">
+                  {eventMatch.venues?.name} • {eventMatch.venues?.city}
+                </span>
               </li>
             ))
           )}
