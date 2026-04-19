@@ -91,9 +91,11 @@ CREATE POLICY "Public read access for venues." ON public.venues FOR SELECT USING
 CREATE POLICY "Public read access for events." ON public.events FOR SELECT USING (true);
 CREATE POLICY "Public read access for event_artists." ON public.event_artists FOR SELECT USING (true);
 
--- Allow authenticated users to insert dynamically created venues and events
+-- Allow authenticated users to insert dynamically created venues, events, artists
 CREATE POLICY "Users can insert venues." ON public.venues FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 CREATE POLICY "Users can insert events." ON public.events FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "Users can insert artists." ON public.artists FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "Users can insert event_artists." ON public.event_artists FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
 -- Logs: Public read, User write
 CREATE POLICY "Public read access for logs." ON public.logs FOR SELECT USING (true);

@@ -29,6 +29,17 @@ export async function logGig(formData: FormData) {
   const rating = ratingStr ? parseFloat(ratingStr) : null;
   const reviewText = formData.get("reviewText") as string | null;
 
+  // Bands input (JSON stringified array from the frontend)
+  const bandsStr = formData.get("bands") as string;
+  let bands: { name: string; isHeadliner: boolean }[] = [];
+  try {
+    if (bandsStr) {
+      bands = JSON.parse(bandsStr);
+    }
+  } catch (e) {
+    console.error("Failed to parse bands", e);
+  }
+
   if (!title || !date || !venueName || !venueCity || !venueCountry) {
     return { error: "Missing required fields." };
   }
@@ -97,6 +108,54 @@ export async function logGig(formData: FormData) {
         throw new Error("You have already logged this specific entry.");
       }
       throw logCreateError;
+    }
+
+    // 4. Process Bands
+    if (bands.length > 0) {
+      for (const band of bands) {
+        if (!band.name.trim()) continue;
+
+        let artistId: string;
+
+        // Try to find existing artist
+        const { data: existingArtists, error: artistSearchError } = await supabase
+          .from("artists")
+          .select("id")
+          .ilike("name", band.name.trim())
+          .limit(1);
+
+        if (artistSearchError) throw artistSearchError;
+
+        if (existingArtists && existingArtists.length > 0) {
+          artistId = existingArtists[0].id;
+        } else {
+          // Create new artist with a fake spotify_id
+          const { data: newArtist, error: artistCreateError } = await supabase
+            .from("artists")
+            .insert({
+              name: band.name.trim(),
+              spotify_id: `custom-${crypto.randomUUID()}`,
+              image_url: imageUrl || null, // Reuse event poster as requested
+              genres: []
+            })
+            .select("id")
+            .single();
+
+          if (artistCreateError) throw artistCreateError;
+          artistId = newArtist.id;
+        }
+
+        // Create mapping in event_artists
+        const { error: eventArtistError } = await supabase
+          .from("event_artists")
+          .insert({
+            event_id: newEvent.id,
+            artist_id: artistId,
+            is_headliner: band.isHeadliner,
+          });
+
+        if (eventArtistError) throw eventArtistError;
+      }
     }
 
     revalidatePath("/profile/[username]", "page");

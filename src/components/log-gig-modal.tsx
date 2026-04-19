@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
-import { X, Calendar, MapPin, Music, Image as ImageIcon } from "lucide-react";
+import { X, Calendar, MapPin, Music, Image as ImageIcon, Plus, Trash2 } from "lucide-react";
 import { Button } from "./ui/button";
+import { Rating } from "./ui/rating";
+import { ArtistAutocomplete } from "./ui/artist-autocomplete";
 import { logGig } from "@/app/actions/log-gig";
 import { useRouter } from "next/navigation";
 
@@ -15,7 +17,27 @@ export function LogGigModal({ isOpen, onClose }: LogGigModalProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState("");
+  const [bands, setBands] = useState<{ name: string; isHeadliner: boolean }[]>([
+    { name: "", isHeadliner: true }
+  ]);
+  const [rating, setRating] = useState<number>(0);
   const router = useRouter();
+
+  const addBand = () => {
+    if (bands.length < 5) {
+      setBands([...bands, { name: "", isHeadliner: false }]);
+    }
+  };
+
+  const removeBand = (index: number) => {
+    setBands(bands.filter((_, i) => i !== index));
+  };
+
+  const updateBand = (index: number, field: "name" | "isHeadliner", value: string | boolean) => {
+    const newBands = [...bands];
+    newBands[index] = { ...newBands[index], [field]: value };
+    setBands(newBands);
+  };
 
   // Close on Escape key
   useEffect(() => {
@@ -35,6 +57,9 @@ export function LogGigModal({ isOpen, onClose }: LogGigModalProps) {
       if (result?.error) {
         setError(result.error);
       } else {
+        setBands([{ name: "", isHeadliner: true }]);
+        setImageUrl("");
+        setRating(0);
         onClose();
         router.refresh();
       }
@@ -74,18 +99,13 @@ export function LogGigModal({ isOpen, onClose }: LogGigModalProps) {
             <div className="space-y-4 flex-1">
               {/* Event Details */}
               <div className="space-y-3">
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
-                    <Music size={16} />
-                  </div>
-                  <input
-                    type="text"
-                    name="title"
-                    required
-                    placeholder="Event Name (e.g. A Moon Shaped Pool Tour)"
-                    className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-lg pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan transition-all"
-                  />
-                </div>
+                <input
+                  type="text"
+                  name="title"
+                  required
+                  placeholder="Event Name (e.g. A Moon Shaped Pool Tour)"
+                  className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan transition-all"
+                />
 
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
@@ -132,6 +152,57 @@ export function LogGigModal({ isOpen, onClose }: LogGigModalProps) {
                 </div>
               </div>
 
+              {/* Bands Info */}
+              <div className="p-4 rounded-lg bg-zinc-900/50 border border-zinc-800/50 space-y-3">
+                <div className="flex items-center justify-between mb-1">
+                  <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5">
+                    <Music size={12} /> Bands / Artists
+                  </h4>
+                  {bands.length < 5 && (
+                    <button 
+                      type="button" 
+                      onClick={addBand}
+                      className="text-[10px] uppercase font-bold text-neon-cyan hover:text-white transition-colors flex items-center gap-1"
+                    >
+                      <Plus size={12} strokeWidth={3} /> Add
+                    </button>
+                  )}
+                </div>
+
+                <input type="hidden" name="bands" value={JSON.stringify(bands)} />
+                
+                {bands.map((band, index) => (
+                  <div key={index} className="flex items-center gap-3">
+                    <ArtistAutocomplete
+                      placeholder={index === 0 ? "Headliner Name" : "Support Band Name"}
+                      value={band.name}
+                      onChange={(val) => updateBand(index, "name", val)}
+                      className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan transition-all"
+                    />
+                    <label className="flex items-center gap-1.5 cursor-pointer text-xs text-zinc-400 font-medium whitespace-nowrap">
+                      <input 
+                        type="checkbox" 
+                        checked={band.isHeadliner}
+                        onChange={(e) => updateBand(index, "isHeadliner", e.target.checked)}
+                        className="accent-neon-cyan shrink-0"
+                      />
+                      Headliner
+                    </label>
+                    {index > 0 ? (
+                      <button 
+                        type="button" 
+                        onClick={() => removeBand(index)}
+                        className="p-1 text-zinc-500 hover:text-red-400 transition-colors shrink-0"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    ) : (
+                      <div className="w-[22px] shrink-0" />
+                    )}
+                  </div>
+                ))}
+              </div>
+
               {/* Poster URL (updates right panel) */}
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
@@ -161,19 +232,10 @@ export function LogGigModal({ isOpen, onClose }: LogGigModalProps) {
                     </select>
                   </div>
                   
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Rating</label>
-                    <select 
-                      name="rating" 
-                      className="bg-zinc-900 border border-zinc-800 text-white rounded text-sm p-1 focus:outline-none focus:border-neon-cyan"
-                    >
-                      <option value="">No Rating</option>
-                      <option value="1">1 Star</option>
-                      <option value="2">2 Stars</option>
-                      <option value="3">3 Stars</option>
-                      <option value="4">4 Stars</option>
-                      <option value="5">5 Stars</option>
-                    </select>
+                  <div className="flex flex-col gap-1 items-end mt-[-8px]">
+                    <label className="text-xs text-zinc-400 font-bold uppercase tracking-wider mb-1">Rating</label>
+                    <Rating value={rating} onChange={setRating} size={20} />
+                    <input type="hidden" name="rating" value={rating || ""} />
                   </div>
                 </div>
 

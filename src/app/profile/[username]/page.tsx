@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { notFound, redirect } from "next/navigation";
 import { User, Plus } from "lucide-react";
+import { Rating } from "@/components/ui/rating";
 import { toggleFollow } from "./actions";
 
 interface ProfilePageProps {
@@ -176,27 +177,22 @@ export default async function UserProfilePage({ params }: ProfilePageProps) {
                 if (!event) return null;
 
                 return (
-                  <div key={log.id} className="relative group rounded-md overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-zinc-500 transition-colors cursor-pointer aspect-[2/3]">
-                    {event.image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={event.image_url} alt={event.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center p-4 text-center bg-zinc-800">
-                        <span className="text-xs text-zinc-500 font-bold">{event.title}</span>
-                      </div>
-                    )}
-                    
-                    {/* Dark overlay and info on hover/always bottom */}
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-2 pt-6">
-                      <div className="flex items-center justify-between">
-                        {log.rating && (
-                          <div className="flex text-neon-cyan text-[10px]">
-                            {Array.from({ length: 5 }).map((_, i) => (
-                              <span key={i}>{i < Math.floor(log.rating) ? "★" : ""}</span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                  <div key={log.id} className="flex flex-col gap-1.5">
+                    <div className="relative group rounded-md overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-zinc-500 transition-colors cursor-pointer aspect-[2/3]">
+                      {event.image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={event.image_url} alt={event.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center p-4 text-center bg-zinc-800">
+                          <span className="text-xs text-zinc-500 font-bold">{event.title}</span>
+                        </div>
+                      )}
+                    </div>
+                    {/* Rating buttons below the poster */}
+                    <div className="flex items-center h-4">
+                      {log.rating > 0 && (
+                        <Rating value={log.rating} readonly size={12} />
+                      )}
                     </div>
                   </div>
                 );
@@ -216,32 +212,27 @@ export default async function UserProfilePage({ params }: ProfilePageProps) {
           </div>
           {logs && logs.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {logs.map((log: any) => {
+              {logs.filter((log: any) => log.events?.is_festival).map((log: any) => {
                 const event = log.events;
                 if (!event) return null;
 
                 return (
-                  <div key={log.id} className="relative group rounded-md overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-zinc-500 transition-colors cursor-pointer aspect-[2/3]">
-                    {event.image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={event.image_url} alt={event.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center p-4 text-center bg-zinc-800">
-                        <span className="text-xs text-zinc-500 font-bold">{event.title}</span>
-                      </div>
-                    )}
-                    
-                    {/* Dark overlay and info on hover/always bottom */}
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-2 pt-6">
-                      <div className="flex items-center justify-between">
-                        {log.rating && (
-                          <div className="flex text-neon-cyan text-[10px]">
-                            {Array.from({ length: 5 }).map((_, i) => (
-                              <span key={i}>{i < Math.floor(log.rating) ? "★" : ""}</span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                  <div key={log.id} className="flex flex-col gap-1.5">
+                    <div className="relative group rounded-md overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-zinc-500 transition-colors cursor-pointer aspect-[2/3]">
+                      {event.image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={event.image_url} alt={event.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center p-4 text-center bg-zinc-800">
+                          <span className="text-xs text-zinc-500 font-bold">{event.title}</span>
+                        </div>
+                      )}
+                    </div>
+                    {/* Rating buttons below the poster */}
+                    <div className="flex items-center h-4">
+                      {log.rating > 0 && (
+                        <Rating value={log.rating} readonly size={12} />
+                      )}
                     </div>
                   </div>
                 );
