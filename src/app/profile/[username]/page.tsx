@@ -1,8 +1,9 @@
 import { createClient } from "@/utils/supabase/server";
 import { notFound, redirect } from "next/navigation";
-import { User, Plus } from "lucide-react";
+import { User } from "lucide-react";
 import { Rating } from "@/components/ui/rating";
 import { toggleFollow } from "./actions";
+import { BestGigsSection } from "@/components/profile/best-gigs-section";
 
 interface ProfilePageProps {
   params: Promise<{
@@ -62,6 +63,24 @@ export default async function UserProfilePage({ params }: ProfilePageProps) {
     )
     .eq("user_id", profile.id)
     .order("created_at", { ascending: false });
+
+  // Fetch the target user's best gigs
+  const { data: bestGigs } = await supabase
+    .from("best_gigs")
+    .select(
+      `
+      *,
+      events (
+        id,
+        title,
+        date,
+        image_url,
+        is_festival
+      )
+    `
+    )
+    .eq("user_id", profile.id)
+    .order("position", { ascending: true });
 
   // Calculate live stats from logs
   let concertsCount = 0;
@@ -145,25 +164,13 @@ export default async function UserProfilePage({ params }: ProfilePageProps) {
           <button className="text-xs font-bold text-zinc-500 hover:text-zinc-300 uppercase tracking-wider pb-2">Network</button>
         </div>
 
-        {/* Best Gigs*/}
-        <div className="mt-2">
-          <div className="flex items-center justify-between border-b border-zinc-800 pb-2 mb-4">
-            <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Best Gigs</h3>
-            <span className="text-xs text-zinc-500 hover:text-white cursor-pointer uppercase tracking-wider">All</span>
-          </div>
-          <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div 
-                key={i} 
-                className="relative group rounded-md overflow-hidden bg-zinc-900/40 border border-zinc-800 border-dashed hover:border-zinc-500 transition-colors cursor-pointer aspect-[2/3] flex items-center justify-center"
-              >
-                <div className="w-8 h-8 rounded-full bg-neon-fuchsia text-white flex items-center justify-center glow-fuchsia group-hover:scale-110 transition-transform">
-                  <Plus size={16} strokeWidth={3} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* Best Gigs */}
+        <BestGigsSection
+          bestGigs={bestGigs || []}
+          logs={logs || []}
+          isOwnProfile={isOwnProfile}
+        />
+
         {/* Latest Gigs */}
         <div className="mt-2">
           <div className="flex items-center justify-between border-b border-zinc-800 pb-2 mb-4">
@@ -248,3 +255,4 @@ export default async function UserProfilePage({ params }: ProfilePageProps) {
     </div>
   );
 }
+
