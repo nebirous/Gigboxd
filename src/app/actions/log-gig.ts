@@ -76,35 +76,51 @@ export async function logGig(formData: FormData) {
       venueId = newVenue.id;
     }
 
-    // 2. Create the event
-    const { data: newEvent, error: eventCreateError } = await supabase
-      .from("events")
-      .insert({
-        title,
-        date,
-        venue_id: venueId,
-        image_url: imageUrl || null,
-        is_festival: false, // Default to false for now
-      })
-      .select("id")
-      .single();
+    // 2. Find or create the event (avoid duplicates for same title+date+venue)
+    let eventId: string;
 
-    if (eventCreateError) throw eventCreateError;
+    const { data: existingEvents, error: eventSearchError } = await supabase
+      .from("events")
+      .select("id")
+      .ilike("title", title)
+      .eq("date", date)
+      .eq("venue_id", venueId)
+      .limit(1);
+
+    if (eventSearchError) throw eventSearchError;
+
+    if (existingEvents && existingEvents.length > 0) {
+      eventId = existingEvents[0].id;
+    } else {
+      const { data: newEvent, error: eventCreateError } = await supabase
+        .from("events")
+        .insert({
+          title,
+          date,
+          venue_id: venueId,
+          image_url: imageUrl || null,
+          is_festival: false,
+        })
+        .select("id")
+        .single();
+
+      if (eventCreateError) throw eventCreateError;
+      eventId = newEvent.id;
+    }
 
     // 3. Create the log
     const { error: logCreateError } = await supabase
       .from("logs")
       .insert({
         user_id: userId,
-        event_id: newEvent.id,
+        event_id: eventId,
         status,
         rating,
         review_text: reviewText || null,
       });
 
     if (logCreateError) {
-      // If there's an error (like unique constraint violation), we throw it.
-      if (logCreateError.code === "23505") { // Unique constraint violation usually
+      if (logCreateError.code === "23505") {
         throw new Error("You have already logged this specific entry.");
       }
       throw logCreateError;
@@ -145,16 +161,25 @@ export async function logGig(formData: FormData) {
           artistId = newArtist.id;
         }
 
-        // Create mapping in event_artists
-        const { error: eventArtistError } = await supabase
+        // Create mapping in event_artists (guard against duplicates)
+        const { data: existingLink } = await supabase
           .from("event_artists")
-          .insert({
-            event_id: newEvent.id,
-            artist_id: artistId,
-            is_headliner: band.isHeadliner,
-          });
+          .select("event_id")
+          .eq("event_id", eventId)
+          .eq("artist_id", artistId)
+          .limit(1);
 
-        if (eventArtistError) throw eventArtistError;
+        if (!existingLink || existingLink.length === 0) {
+          const { error: eventArtistError } = await supabase
+            .from("event_artists")
+            .insert({
+              event_id: eventId,
+              artist_id: artistId,
+              is_headliner: band.isHeadliner,
+            });
+
+          if (eventArtistError) throw eventArtistError;
+        }
       }
     }
 

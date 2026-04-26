@@ -4,6 +4,7 @@ import { User } from "lucide-react";
 import { Rating } from "@/components/ui/rating";
 import { toggleFollow } from "./actions";
 import { BestGigsSection } from "@/components/profile/best-gigs-section";
+import Link from "next/link";
 
 interface ProfilePageProps {
   params: Promise<{
@@ -57,7 +58,12 @@ export default async function UserProfilePage({ params }: ProfilePageProps) {
       *,
       events (
         *,
-        venues (*)
+        venues (*),
+        event_artists (
+          artist_id,
+          is_headliner,
+          artists ( id, name )
+        )
       )
     `
     )
@@ -85,15 +91,23 @@ export default async function UserProfilePage({ params }: ProfilePageProps) {
   // Calculate live stats from logs
   let concertsCount = 0;
   let festivalsCount = 0;
-  
+  const uniqueArtistIds = new Set<string>();
+
   if (logs) {
     logs.forEach((log: any) => {
       concertsCount++;
       if (log.events?.is_festival) {
         festivalsCount++;
       }
+      if (log.events?.event_artists) {
+        log.events.event_artists.forEach((ea: any) => {
+          if (ea.artist_id) uniqueArtistIds.add(ea.artist_id);
+        });
+      }
     });
   }
+
+  const bandsCount = uniqueArtistIds.size;
 
   // Toggle function via form action
   const handleFollowToggle = toggleFollow.bind(null, profile.id, isFollowing);
@@ -146,7 +160,7 @@ export default async function UserProfilePage({ params }: ProfilePageProps) {
               <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Concerts</span>
             </div>
             <div className="text-center">
-              <span className="block text-xl font-bold text-white leading-none mb-1">0</span>
+              <span className="block text-xl font-bold text-white leading-none mb-1">{bandsCount}</span>
               <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Bands</span>
             </div>
             <div className="text-center">
@@ -185,16 +199,18 @@ export default async function UserProfilePage({ params }: ProfilePageProps) {
 
                 return (
                   <div key={log.id} className="flex flex-col gap-1.5">
-                    <div className="relative group rounded-md overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-zinc-500 transition-colors cursor-pointer aspect-[2/3]">
-                      {event.image_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={event.image_url} alt={event.title} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center p-4 text-center bg-zinc-800">
-                          <span className="text-xs text-zinc-500 font-bold">{event.title}</span>
-                        </div>
-                      )}
-                    </div>
+                    <Link href={`/event/${event.id}`} className="block">
+                      <div className="relative group rounded-md overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-zinc-500 transition-colors cursor-pointer aspect-[2/3]">
+                        {event.image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={event.image_url} alt={event.title} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center p-4 text-center bg-zinc-800">
+                            <span className="text-xs text-zinc-500 font-bold">{event.title}</span>
+                          </div>
+                        )}
+                      </div>
+                    </Link>
                     {/* Rating buttons below the poster */}
                     <div className="flex items-center h-4">
                       {log.rating > 0 && (
@@ -225,16 +241,18 @@ export default async function UserProfilePage({ params }: ProfilePageProps) {
 
                 return (
                   <div key={log.id} className="flex flex-col gap-1.5">
-                    <div className="relative group rounded-md overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-zinc-500 transition-colors cursor-pointer aspect-[2/3]">
-                      {event.image_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={event.image_url} alt={event.title} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center p-4 text-center bg-zinc-800">
-                          <span className="text-xs text-zinc-500 font-bold">{event.title}</span>
-                        </div>
-                      )}
-                    </div>
+                    <Link href={`/event/${event.id}`} className="block">
+                      <div className="relative group rounded-md overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-zinc-500 transition-colors cursor-pointer aspect-[2/3]">
+                        {event.image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={event.image_url} alt={event.title} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center p-4 text-center bg-zinc-800">
+                            <span className="text-xs text-zinc-500 font-bold">{event.title}</span>
+                          </div>
+                        )}
+                      </div>
+                    </Link>
                     {/* Rating buttons below the poster */}
                     <div className="flex items-center h-4">
                       {log.rating > 0 && (
