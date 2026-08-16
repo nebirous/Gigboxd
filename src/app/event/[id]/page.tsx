@@ -8,10 +8,14 @@ interface EventPageProps {
   params: Promise<{
     id: string;
   }>;
+  searchParams: Promise<{
+    error?: string;
+  }>;
 }
 
-export default async function EventPage({ params }: EventPageProps) {
+export default async function EventPage({ params, searchParams }: EventPageProps) {
   const { id } = await params;
+  const { error } = await searchParams;
   const supabase = await createClient();
 
   // 1. Fetch event from DB
@@ -80,6 +84,11 @@ export default async function EventPage({ params }: EventPageProps) {
       </div>
 
       <div className="max-w-4xl mx-auto p-4 md:p-8">
+        {error && (
+          <div role="alert" className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            We couldn’t save your log. Please check the details and try again.
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Main Column */}
           <div className="md:col-span-2 space-y-8">

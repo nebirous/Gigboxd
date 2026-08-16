@@ -5,6 +5,7 @@ import { User } from "lucide-react";
 import { Rating } from "@/components/ui/rating";
 import { BestGigsSection } from "@/components/profile/best-gigs-section";
 import Link from "next/link";
+import { ProfileHeader } from "@/components/profile/profile-header";
 
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -17,27 +18,14 @@ export default async function ProfilePage() {
 
   const userId = data.claims.sub;
 
-  // Fetch the public profile
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("*")
+    .select("username")
     .eq("id", userId)
     .single();
 
-  // Fetch followers count (people who follow this user)
-  const { count: followersCount } = await supabase
-    .from("follows")
-    .select("*", { count: "exact", head: true })
-    .eq("following_id", userId);
-
-  // Fetch following count (people this user follows)
-  const { count: followingCount } = await supabase
-    .from("follows")
-    .select("*", { count: "exact", head: true })
-    .eq("follower_id", userId);
-
   // Fetch the user's logs (Diary entries)
-  const { data: logs } = await supabase
+  const { data: logs, error: logsError } = await supabase
     .from("logs")
     .select(
       `
@@ -54,10 +42,11 @@ export default async function ProfilePage() {
     `
     )
     .eq("user_id", userId)
+    .eq("status", "Attended")
     .order("created_at", { ascending: false });
 
   // Fetch the user's best gigs
-  const { data: bestGigs } = await supabase
+  const { data: bestGigs, error: bestGigsError } = await supabase
     .from("best_gigs")
     .select(
       `
@@ -74,89 +63,16 @@ export default async function ProfilePage() {
     .eq("user_id", userId)
     .order("position", { ascending: true });
 
-  // Calculate live stats from logs
-  let concertsCount = 0;
-  let festivalsCount = 0;
-  const uniqueArtistIds = new Set<string>();
-
-  if (logs) {
-    logs.forEach((log: any) => {
-      concertsCount++;
-      if (log.events?.is_festival) {
-        festivalsCount++;
-      }
-      if (log.events?.event_artists) {
-        log.events.event_artists.forEach((ea: any) => {
-          if (ea.artist_id) uniqueArtistIds.add(ea.artist_id);
-        });
-      }
-    });
-  }
-
-  const bandsCount = uniqueArtistIds.size;
-
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-200">
-      {/* Profile Header */}
       <main className="mx-auto max-w-4xl p-4 pt-10">
-        <div className="flex flex-col md:flex-row items-center md:items-end justify-between gap-6 pb-6">
-          <div className="flex items-center gap-6">
-            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-zinc-800 text-zinc-500 overflow-hidden border border-zinc-700">
-              {profile?.avatar_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={profile.avatar_url}
-                  alt="Avatar"
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <User size={40} />
-              )}
-            </div>
-            <div className="flex flex-col pb-1">
-              <h2 className="text-2xl font-bold text-white font-outfit">
-                {profile?.full_name || profile?.username || "User"}
-              </h2>
-              <form action={logout} className="mt-1">
-                <button className="text-[10px] uppercase font-bold text-zinc-400 hover:text-white border border-zinc-700 rounded px-2 py-0.5">
-                  Edit Profile / Logout
-                </button>
-              </form>
-            </div>
-          </div>
+        <ProfileHeader userId={userId} currentPath="/profile" />
 
-          {/* Stats aligned to the right (Letterboxd style) */}
-          <div className="flex items-center gap-6 md:gap-8 pb-1">
-            <div className="text-center">
-              <span className="block text-xl font-bold text-white leading-none mb-1">{concertsCount}</span>
-              <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Concerts</span>
-            </div>
-            <div className="text-center">
-              <span className="block text-xl font-bold text-white leading-none mb-1">{bandsCount}</span>
-              <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Bands</span>
-            </div>
-            <div className="text-center">
-              <span className="block text-xl font-bold text-white leading-none mb-1">{festivalsCount}</span>
-              <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Festivals</span>
-            </div>
-            <div className="text-center">
-              <span className="block text-xl font-bold text-white leading-none mb-1">{followersCount ?? 0}</span>
-              <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Followers</span>
-            </div>
-            <div className="text-center">
-              <span className="block text-xl font-bold text-white leading-none mb-1">{followingCount ?? 0}</span>
-              <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Following</span>
-            </div>
+        {(profileError || logsError || bestGigsError) && (
+          <div role="alert" className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            Some profile information could not be loaded. Refresh the page to try again.
           </div>
-        </div>
-
-        {/* Profile Subnav */}
-        <div className="flex items-center justify-center md:justify-start gap-6 border-b border-zinc-800 pb-[10px] mb-8">
-          <button className="text-xs font-bold text-white uppercase tracking-wider border-b-2 border-neon-cyan pb-2 -mb-[12px]">Profile</button>
-          <button className="text-xs font-bold text-zinc-500 hover:text-zinc-300 uppercase tracking-wider pb-2">Activity</button>
-          <button className="text-xs font-bold text-zinc-500 hover:text-zinc-300 uppercase tracking-wider pb-2">Diary</button>
-          <button className="text-xs font-bold text-zinc-500 hover:text-zinc-300 uppercase tracking-wider pb-2">Network</button>
-        </div>
+        )}
 
         {/* Best Gigs */}
         <BestGigsSection
@@ -169,11 +85,15 @@ export default async function ProfilePage() {
         <div className="mt-2">
           <div className="flex items-center justify-between border-b border-zinc-800 pb-2 mb-4">
             <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Latest Gigs</h3>
-            <span className="text-xs text-zinc-500 hover:text-white cursor-pointer uppercase tracking-wider">All</span>
+            {profile?.username ? (
+              <Link href={`/profile/${profile.username}/gigs?type=gig`} className="text-xs text-zinc-500 hover:text-white uppercase tracking-wider">All</Link>
+            ) : (
+              <span className="text-xs text-zinc-500 cursor-pointer uppercase tracking-wider">All</span>
+            )}
           </div>
-          {logs && logs.length > 0 ? (
+          {logs && logs.filter((log: any) => !log.events?.is_festival).length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {logs.map((log: any) => {
+              {logs.filter((log: any) => !log.events?.is_festival).slice(0, 4).map((log: any) => {
                 const event = log.events;
                 if (!event) return null;
 
@@ -204,6 +124,9 @@ export default async function ProfilePage() {
           ) : (
             <div className="text-center py-12 bg-zinc-900/20 rounded-xl border border-zinc-800/50">
               <p className="text-zinc-500">No concerts logged yet.</p>
+              <Link href="/discover" className="mt-2 inline-block text-sm font-medium text-neon-cyan hover:text-white">
+                Find a show to log
+              </Link>
             </div>
           )}
         </div>
@@ -212,11 +135,15 @@ export default async function ProfilePage() {
         <div className="mt-2">
           <div className="flex items-center justify-between border-b border-zinc-800 pb-2 mb-4">
             <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Festivals</h3>
-            <span className="text-xs text-zinc-500 hover:text-white cursor-pointer uppercase tracking-wider">All</span>
+            {profile?.username ? (
+              <Link href={`/profile/${profile.username}/gigs?type=festival`} className="text-xs text-zinc-500 hover:text-white uppercase tracking-wider">All</Link>
+            ) : (
+              <span className="text-xs text-zinc-500 cursor-pointer uppercase tracking-wider">All</span>
+            )}
           </div>
-          {logs && logs.length > 0 ? (
+          {logs && logs.filter((log: any) => log.events?.is_festival).length > 0 ? (
              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {logs.filter((log: any) => log.events?.is_festival).map((log: any) => {
+              {logs.filter((log: any) => log.events?.is_festival).slice(0, 4).map((log: any) => {
                 const event = log.events;
                 if (!event) return null;
 
@@ -247,6 +174,9 @@ export default async function ProfilePage() {
           ) : (
             <div className="text-center py-12 bg-zinc-900/20 rounded-xl border border-zinc-800/50">
               <p className="text-zinc-500">No festivals logged yet.</p>
+              <Link href="/discover" className="mt-2 inline-block text-sm font-medium text-neon-cyan hover:text-white">
+                Explore upcoming events
+              </Link>
             </div>
           )}
         </div>

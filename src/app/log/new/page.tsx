@@ -11,6 +11,7 @@ import { useSearchParams } from "next/navigation";
 function LogForm() {
   const searchParams = useSearchParams();
   const eventId = searchParams.get("eventId");
+  const saveError = searchParams.get("error");
   
   const [rating, setRating] = useState<number>(0);
   const [status, setStatus] = useState<"Attended" | "Going">("Attended");
@@ -42,6 +43,12 @@ function LogForm() {
             Record your rating and write a review.
           </p>
         </div>
+
+        {saveError && (
+          <p role="alert" className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            We couldn’t save your entry. Please try again.
+          </p>
+        )}
 
         <form action={createLogEntry} className="space-y-8 glass p-6 md:p-8 rounded-2xl border border-zinc-800/50 relative overflow-hidden">
           {/* subtle background glow */}

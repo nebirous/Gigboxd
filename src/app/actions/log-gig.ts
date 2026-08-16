@@ -26,7 +26,7 @@ export async function logGig(formData: FormData) {
   // Log inputs
   const status = formData.get("status") as string || "Attended"; // 'Attended' or 'Going'
   const ratingStr = formData.get("rating") as string;
-  const rating = ratingStr ? parseFloat(ratingStr) : null;
+  const rating = (status === "Going" || !ratingStr) ? null : parseFloat(ratingStr);
   const reviewText = formData.get("reviewText") as string | null;
 
   // Bands input (JSON stringified array from the frontend)
@@ -42,6 +42,14 @@ export async function logGig(formData: FormData) {
 
   if (!title || !date || !venueName || !venueCity || !venueCountry) {
     return { error: "Missing required fields." };
+  }
+
+  if (!["Attended", "Going"].includes(status)) {
+    return { error: "Choose a valid attendance status." };
+  }
+
+  if (rating !== null && (!Number.isFinite(rating) || rating < 1 || rating > 5)) {
+    return { error: "Ratings must be between 1 and 5 stars." };
   }
 
   try {

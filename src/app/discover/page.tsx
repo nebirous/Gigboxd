@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search as SearchIcon, Music, MapPin, Calendar, ArrowRight } from "lucide-react";
+import { Search as SearchIcon, Music, Calendar, ArrowRight, WifiOff } from "lucide-react";
 import { useDebounce } from "@/hooks/use-debounce";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,16 +19,19 @@ export default function DiscoverPage() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResultItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const debouncedQuery = useDebounce(query, 500);
 
   useEffect(() => {
     async function searchCombined() {
       if (!debouncedQuery || debouncedQuery.trim().length < 2) {
         setResults([]);
+        setError(null);
         return;
       }
 
       setIsLoading(true);
+      setError(null);
 
       try {
         // Fetch artists and events in parallel
@@ -40,6 +43,10 @@ export default function DiscoverPage() {
             )}&type=future`
           ),
         ]);
+
+        if (!artistsRes.ok || !eventsRes.ok) {
+          throw new Error("The search service is temporarily unavailable.");
+        }
 
         const artistsData = await artistsRes.json();
         const eventsData = await eventsRes.json();
@@ -64,7 +71,9 @@ export default function DiscoverPage() {
         if (eventsData.events) {
           eventsData.events.slice(0, 10).forEach((event: any) => {
             // Local fallback if structure is different
-            const venueName = event.venues?.[0]?.name || "Unknown Venue";
+            const venueName = Array.isArray(event.venues)
+              ? event.venues[0]?.name
+              : event.venues?.name;
             
             combinedResults.push({
               type: "event",
@@ -80,6 +89,8 @@ export default function DiscoverPage() {
         setResults(combinedResults);
       } catch (error) {
         console.error("Search failed:", error);
+        setResults([]);
+        setError("We couldn’t complete that search. Check your connection and try again.");
       } finally {
         setIsLoading(false);
       }
@@ -115,6 +126,13 @@ export default function DiscoverPage() {
           </div>
         )}
       </div>
+
+      {error && (
+        <div role="alert" className="mb-6 flex items-start gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+          <WifiOff className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>{error}</p>
+        </div>
+      )}
 
       {/* Results */}
       <div className="space-y-4">
@@ -172,6 +190,7 @@ export default function DiscoverPage() {
             <div className="text-center py-12 text-zinc-500">
               <SearchIcon className="w-12 h-12 mx-auto mb-3 opacity-20" />
               <p>No results found for &quot;{query}&quot;</p>
+              <p className="mt-1 text-sm">Try an artist, tour, or event name instead.</p>
             </div>
           )
         )}

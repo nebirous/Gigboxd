@@ -1,6 +1,18 @@
-import { login, signup } from "./actions";
+import Link from "next/link";
+import { login } from "./actions";
 
-export default function LoginPage() {
+interface LoginPageProps {
+  searchParams: Promise<{
+    error?: string;
+    message?: string;
+    next?: string;
+  }>;
+}
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const { error, message, next } = await searchParams;
+  const nextPath = next?.startsWith("/") && !next.startsWith("//") ? next : "/profile";
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-950 p-4">
       <div className="w-full max-w-sm rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 shadow-2xl backdrop-blur-md">
@@ -8,10 +20,22 @@ export default function LoginPage() {
           Welcome to Gigboxd
         </h1>
         <p className="mb-6 text-sm text-zinc-400">
-          Sign in to log your live music history.
+          Sign in to continue your live music diary.
         </p>
 
+        {error && (
+          <p role="alert" className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+            {error}
+          </p>
+        )}
+        {message && (
+          <p role="status" className="mb-4 rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-2 text-sm text-cyan-200">
+            {message}
+          </p>
+        )}
+
         <form className="flex flex-col gap-4">
+          <input type="hidden" name="next" value={nextPath} />
           <div className="flex flex-col gap-1">
             <label htmlFor="email" className="text-xs font-medium text-zinc-300">
               Email
@@ -46,14 +70,17 @@ export default function LoginPage() {
             >
               Log In
             </button>
-            <button
-              formAction={signup}
-              className="w-full rounded-lg border border-zinc-700 bg-transparent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-zinc-800"
-            >
-              Sign Up
-            </button>
+            <Link href="/forgot-password" className="text-center text-sm text-zinc-400 hover:text-white">
+              Forgot your password?
+            </Link>
           </div>
         </form>
+        <p className="mt-6 border-t border-zinc-800 pt-5 text-center text-sm text-zinc-400">
+          New to Gigboxd?{" "}
+          <Link href={`/signup?next=${encodeURIComponent(nextPath)}`} className="font-semibold text-neon-cyan hover:text-white">
+            Create an account
+          </Link>
+        </p>
       </div>
     </div>
   );

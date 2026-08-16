@@ -30,6 +30,7 @@ export function LogGigModal({ isOpen, onClose }: LogGigModalProps) {
   ]);
   const [isLockedEvent, setIsLockedEvent] = useState(false);
   const [rating, setRating] = useState<number>(0);
+  const [status, setStatus] = useState("Attended");
   const router = useRouter();
 
   const addBand = () => {
@@ -79,6 +80,21 @@ export function LogGigModal({ isOpen, onClose }: LogGigModalProps) {
 
   async function handleSubmit(formData: FormData) {
     setError(null);
+
+    const requiredFields = [
+      ["title", "an event name"],
+      ["date", "a date"],
+      ["venueName", "a venue"],
+      ["venueCity", "a city"],
+      ["venueCountry", "a country"],
+    ] as const;
+    const missingField = requiredFields.find(([field]) => !String(formData.get(field) || "").trim());
+
+    if (missingField) {
+      setError(`Please add ${missingField[1]} before saving.`);
+      return;
+    }
+
     startTransition(async () => {
       const result = await logGig(formData);
       if (result?.error) {
@@ -93,6 +109,7 @@ export function LogGigModal({ isOpen, onClose }: LogGigModalProps) {
         setImageUrl("");
         setIsLockedEvent(false);
         setRating(0);
+        setStatus("Attended");
         onClose();
         router.refresh();
       }
@@ -128,7 +145,7 @@ export function LogGigModal({ isOpen, onClose }: LogGigModalProps) {
             </div>
           )}
 
-          <form action={handleSubmit} className="space-y-4 flex flex-col flex-1">
+          <form action={handleSubmit} noValidate className="space-y-4 flex flex-col flex-1">
             <div className="space-y-4 flex-1">
               {/* Hidden Inputs for Form Submission */}
               <input type="hidden" name="title" value={title} />
@@ -279,7 +296,9 @@ export function LogGigModal({ isOpen, onClose }: LogGigModalProps) {
                   <div className="flex items-center gap-2">
                     <label className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Status</label>
                     <select 
-                      name="status" 
+                      name="status"
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value)}
                       className="bg-zinc-900 border border-zinc-800 text-white rounded text-sm p-1 focus:outline-none focus:border-neon-cyan"
                     >
                       <option value="Attended">Attended</option>
@@ -287,10 +306,10 @@ export function LogGigModal({ isOpen, onClose }: LogGigModalProps) {
                     </select>
                   </div>
                   
-                  <div className="flex flex-col gap-1 items-end mt-[-8px]">
+                  <div className={`flex flex-col gap-1 items-end mt-[-8px] ${status === 'Going' ? 'opacity-50 pointer-events-none' : ''}`}>
                     <label className="text-xs text-zinc-400 font-bold uppercase tracking-wider mb-1">Rating</label>
-                    <Rating value={rating} onChange={setRating} size={20} />
-                    <input type="hidden" name="rating" value={rating || ""} />
+                    <Rating value={status === 'Going' ? 0 : rating} onChange={setRating} size={20} />
+                    <input type="hidden" name="rating" value={status === 'Going' ? "" : (rating || "")} />
                   </div>
                 </div>
 

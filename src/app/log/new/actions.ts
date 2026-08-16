@@ -21,6 +21,14 @@ export async function createLogEntry(formData: FormData) {
 
   const rating = rawRating ? parseFloat(rawRating) : null;
 
+  if (!eventId || !["Attended", "Going"].includes(status)) {
+    redirect("/discover");
+  }
+
+  if (rating !== null && (!Number.isFinite(rating) || rating < 1 || rating > 5)) {
+    redirect(`/log/new?eventId=${eventId}&error=invalid-rating`);
+  }
+
   // Insert or update (upsert) the log entry
   const { error } = await supabase
     .from("logs")

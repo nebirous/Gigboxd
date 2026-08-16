@@ -34,13 +34,16 @@ export async function updateSession(request: NextRequest) {
   // public keys every time, making it safe to trust in server-side code.
   const { data } = await supabase.auth.getClaims();
 
-  // Redirect users to /login if they attempt to access protected routes
-  if (
-    !data &&
-    request.nextUrl.pathname.startsWith("/profile")
-  ) {
+  const isProtectedRoute = ["/profile", "/diary", "/log/new"].some(
+    (route) => request.nextUrl.pathname === route || request.nextUrl.pathname.startsWith(`${route}/`)
+  );
+
+  // Preserve the requested local path so login returns the user to their task.
+  if (!data && isProtectedRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    url.search = "";
+    url.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(url);
   }
 

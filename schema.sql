@@ -5,8 +5,16 @@ CREATE TABLE public.profiles (
   full_name TEXT,
   avatar_url TEXT,
   bio TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+  location TEXT,
+  favorite_genres TEXT[] NOT NULL DEFAULT '{}',
+  is_public BOOLEAN NOT NULL DEFAULT TRUE,
+  onboarding_completed_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  CONSTRAINT profiles_username_format CHECK (username ~ '^[a-z0-9_]{3,24}$')
 );
+
+CREATE UNIQUE INDEX profiles_username_lower_unique ON public.profiles (lower(username));
 
 -- Artists
 CREATE TABLE public.artists (
@@ -71,6 +79,17 @@ CREATE TABLE public.follows (
   PRIMARY KEY (follower_id, following_id)
 );
 
+-- Best Gigs (up to six pinned favourite events per user profile)
+CREATE TABLE public.best_gigs (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  event_id UUID REFERENCES public.events(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL CHECK (position >= 0 AND position <= 5),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  UNIQUE(user_id, position),
+  UNIQUE(user_id, event_id)
+);
+
 -- RLS: Row-Level Security Policies
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.artists ENABLE ROW LEVEL SECURITY;
@@ -79,11 +98,14 @@ ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.event_artists ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.follows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.best_gigs ENABLE ROW LEVEL SECURITY;
 
 -- Profiles: Anyone can read, only users can update their own
 CREATE POLICY "Public profiles are viewable by everyone." ON public.profiles FOR SELECT USING (true);
 CREATE POLICY "Users can insert their own profile." ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
-CREATE POLICY "Users can update own profile." ON public.profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Users can update own profile." ON public.profiles FOR UPDATE TO authenticated
+  USING ((SELECT auth.uid()) = id)
+  WITH CHECK ((SELECT auth.uid()) = id);
 
 -- Artists, Venues, Events, Event_Artists: Public read, Service key write
 CREATE POLICY "Public read access for artists." ON public.artists FOR SELECT USING (true);
@@ -108,6 +130,25 @@ CREATE POLICY "Public read access for follows." ON public.follows FOR SELECT USI
 CREATE POLICY "Users can follow others." ON public.follows FOR INSERT WITH CHECK (auth.uid() = follower_id);
 CREATE POLICY "Users can unfollow." ON public.follows FOR DELETE USING (auth.uid() = follower_id);
 
+-- Best Gigs: Public read, owners can manage their pinned events
+CREATE POLICY "Public read access for best_gigs." ON public.best_gigs FOR SELECT USING (true);
+CREATE POLICY "Users can insert own best_gigs." ON public.best_gigs FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own best_gigs." ON public.best_gigs FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own best_gigs." ON public.best_gigs FOR DELETE USING (auth.uid() = user_id);
+
+-- Profile images are public; users may only manage files in their own folder.
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('avatars', 'avatars', TRUE, 5242880, ARRAY['image/jpeg', 'image/png', 'image/webp']);
+
+CREATE POLICY "Avatar images are publicly accessible" ON storage.objects FOR SELECT USING (bucket_id = 'avatars');
+CREATE POLICY "Users can upload own avatar" ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'avatars' AND (storage.foldername(name))[1] = (SELECT auth.uid()::text));
+CREATE POLICY "Users can update own avatar" ON storage.objects FOR UPDATE TO authenticated
+  USING (bucket_id = 'avatars' AND (storage.foldername(name))[1] = (SELECT auth.uid()::text))
+  WITH CHECK (bucket_id = 'avatars' AND (storage.foldername(name))[1] = (SELECT auth.uid()::text));
+CREATE POLICY "Users can delete own avatar" ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'avatars' AND (storage.foldername(name))[1] = (SELECT auth.uid()::text));
+
 -- Create a Trigger to Automatically Create Profile upon Signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
@@ -115,14 +156,28 @@ BEGIN
   INSERT INTO public.profiles (id, username, full_name, avatar_url)
   VALUES (
     new.id,
-    COALESCE(new.raw_user_meta_data->>'user_name', split_part(new.email, '@', 1)),
+    'user_' || substring(replace(new.id::text, '-', '') from 1 for 18),
     new.raw_user_meta_data->>'full_name',
     new.raw_user_meta_data->>'avatar_url'
   );
   RETURN new;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
+
+REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION public.set_profile_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = TIMEZONE('utc'::text, NOW());
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+CREATE TRIGGER on_profile_updated
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW EXECUTE PROCEDURE public.set_profile_updated_at();
